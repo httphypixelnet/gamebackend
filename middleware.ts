@@ -1,13 +1,16 @@
-import { createMiddleware } from 'hono/factory';
-import type { ZodType } from 'zod';
+import { createMiddleware } from "hono/factory";
+import { treeifyError, type ZodType } from "zod";
 export const jsonMiddleware = <T>(schema: ZodType<T>) => {
-    // create middleware that validates the request body against the schema
+  // create middleware that validates the response body against the schema
   return createMiddleware(async (c, next) => {
-    const body = await c.req.json();
+    await next();
+    const body = await c.res.json();
     const { success, data, error } = schema.safeParse(body);
     if (!success) {
-      return c.json({ message: 'Invalid data', errors: error.errors }, 400);
-    }
-    await next();
+      return c.json(
+        { message: "Invalid data", errors: treeifyError(error) },
+        400
+      );
+    } else return new Response(JSON.stringify(data));
   });
 };

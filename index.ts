@@ -1,26 +1,33 @@
-import { Hono } from 'hono';
-import { PrismaClient } from './generated/prisma';
+import { Hono } from "hono";
+import { PrismaClient } from "@prisma/client";
 import {
   BaseUserSchema,
   UserSchema,
   UsersResponseSchema,
   type User,
-} from './schemas';
-import { jsonMiddleware } from './middleware';
+} from "./schemas";
+import { jsonMiddleware } from "./middleware";
+import { treeifyError } from "zod";
 export const prisma = new PrismaClient();
 
 const app = new Hono();
 
-jsonMiddleware<User>(UsersResponseSchema);
+app.get("/", jsonMiddleware<User[]>(UserSchema.array()), async (c) => {
+  // get users from DB, sort by highest score.
+  console.log('d')
+  const users = await prisma.user.findMany({
+    orderBy: { score: "desc" },
+  });
+  return c.json({ users });
+});
 
-
-
-app.get('/', jsonMiddleware<User>(UserSchema), );
-
-app.post('/', jsonMiddleware<User>(UserSchema), async (c) => {
+app.post("/", jsonMiddleware<User>(UserSchema), async (c) => {
   const { data, success, error } = BaseUserSchema.safeParse(await c.req.json());
   if (!success) {
-    return c.json({ message: 'Invalid data', errors: error.errors }, 400);
+    return c.json(
+      { message: "Invalid data", errors: treeifyError(error) },
+      400
+    );
   }
   const user = await prisma.user.create({
     data: {
@@ -29,10 +36,10 @@ app.post('/', jsonMiddleware<User>(UserSchema), async (c) => {
   });
   return c.json({ message: user });
 });
-app.put('/', async (c) => {
+app.put("/", async (c) => {
   await mockData();
   return c.json({
-    message: 'Mock data created',
+    message: "Mock data created",
     users: await prisma.user.findMany(),
   });
 });
@@ -47,16 +54,16 @@ if (import.meta.main) {
   //   });
   Bun.serve({
     fetch: app.fetch,
-    port: 80,
+    port: 8080,
   });
 }
 
 export async function mockData() {
   await prisma.user.createMany({
     data: [
-      { name: 'Alice', score: 10 },
-      { name: 'Bob', score: 20 },
-      { name: 'Charlie', score: 30 },
+      { name: "Alice", score: 10 },
+      { name: "Bob", score: 20 },
+      { name: "Charlie", score: 30 },
     ],
   });
 }
