@@ -1,2 +1,0 @@
-import { mockData } from '.';
-mockData();
